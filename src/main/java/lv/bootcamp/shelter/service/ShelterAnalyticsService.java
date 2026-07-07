@@ -5,6 +5,8 @@ import lv.bootcamp.shelter.service.data.ImportResult;
 import lv.bootcamp.shelter.service.data.ShelterReportData;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class ShelterAnalyticsService {
 
@@ -15,19 +17,36 @@ public class ShelterAnalyticsService {
         Map<String, List<Animal>> animalsBySpecies = new HashMap<>();
         List<String> animalsNeedingVetInput = new ArrayList<>();
 
-        // TODO Step 2:
-        // Fill all collections:
-        // - allAnimals (already available from import)
-        // - uniqueSpecies
-        // - animalsBySpecies
-        // - animalsNeedingVetInput with format name(species)
+        for (Animal animal : allAnimals) {
+            uniqueSpecies.add(animal.getSpecies());
+            animalsBySpecies.computeIfAbsent(animal.getSpecies(), k -> new ArrayList<>()).add(animal);
+            if (!animal.isVaccinated()) {
+                animalsNeedingVetInput.add(animal.getName() + "(" + animal.getSpecies() + ")");
+            }
+        }
 
-        // TODO Step 3:
-        // Add necessary fields to ShelterReportData
-        // Use stream pipelines for:
-        // - vaccinated vs unvaccinated counts per species
-        // - oldest animal per species (excluding unknown ages)
+        Map<String, Long> vaccinatedCountBySpecies = allAnimals.stream()
+                .filter(Animal::isVaccinated)
+                .collect(Collectors.groupingBy(Animal::getSpecies, Collectors.counting()));
 
-        return new ShelterReportData(importResult);
+        Map<String, Long> unvaccinatedCountBySpecies = allAnimals.stream()
+                .filter(a -> !a.isVaccinated())
+                .collect(Collectors.groupingBy(Animal::getSpecies, Collectors.counting()));
+
+        Map<String, Animal> oldestAnimalBySpecies = allAnimals.stream()
+                .filter(a -> a.getAge() != null)
+                .collect(Collectors.toMap(
+                        Animal::getSpecies,
+                        Function.identity(),
+                        (a1, a2) -> a1.getAge() >= a2.getAge() ? a1 : a2));
+
+        return new ShelterReportData(
+                importResult,
+                uniqueSpecies,
+                animalsBySpecies,
+                animalsNeedingVetInput,
+                vaccinatedCountBySpecies,
+                unvaccinatedCountBySpecies,
+                oldestAnimalBySpecies);
     }
 }
